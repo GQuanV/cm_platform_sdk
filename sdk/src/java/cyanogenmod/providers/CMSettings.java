@@ -438,6 +438,13 @@ public final class CMSettings {
                 CALL_METHOD_GET_SYSTEM,
                 CALL_METHOD_PUT_SYSTEM);
 
+        /** @hide */
+        protected static final ArraySet<String> MOVED_TO_SECURE;
+        static {
+            MOVED_TO_SECURE = new ArraySet<>(1);
+            MOVED_TO_SECURE.add(Secure.DEV_FORCE_SHOW_NAVBAR);
+        }
+
         // region Methods
 
         /**
@@ -501,6 +508,11 @@ public final class CMSettings {
         /** @hide */
         public static String getStringForUser(ContentResolver resolver, String name,
                 int userId) {
+            if (MOVED_TO_SECURE.contains(name)) {
+                Log.w(TAG, "Setting " + name + " has moved from CMSettings.System"
+                        + " to CMSettings.Secure, value is unchanged.");
+                return CMSettings.Secure.getStringForUser(resolver, name, userId);
+            }
             return sNameValueCache.getStringForUser(resolver, name, userId);
         }
 
@@ -518,6 +530,11 @@ public final class CMSettings {
         /** @hide */
         public static boolean putStringForUser(ContentResolver resolver, String name, String value,
                int userId) {
+            if (MOVED_TO_SECURE.contains(name)) {
+                Log.w(TAG, "Setting " + name + " has moved from CMSettings.System"
+                        + " to CMSettings.Secure, value is unchanged.");
+                return false;
+            }
             return sNameValueCache.putStringForUser(resolver, name, value, userId);
         }
 
@@ -1837,6 +1854,9 @@ public final class CMSettings {
          */
         public static final String HEADSET_CONNECT_PLAYER = "headset_connect_player";
 
+        /** @hide */
+        public static final Validator HEADSET_CONNECT_PLAYER_VALIDATOR = sBooleanValidator;
+
         /**
          * Whether or not to vibrate when a touchscreen gesture is detected
          */
@@ -1974,6 +1994,7 @@ public final class CMSettings {
                 CMSettings.System.STATUS_BAR_SHOW_BATTERY_PERCENT,
                 CMSettings.System.VOLUME_KEYS_CONTROL_RING_STREAM,
                 CMSettings.System.NAVIGATION_BAR_MENU_ARROW_KEYS,
+                CMSettings.System.HEADSET_CONNECT_PLAYER,
                 CMSettings.System.ZEN_ALLOW_LIGHTS,
                 CMSettings.System.TOUCHSCREEN_GESTURE_HAPTIC_FEEDBACK,
         };
@@ -1989,7 +2010,15 @@ public final class CMSettings {
          * @hide
          */
         public static boolean shouldInterceptSystemProvider(String key) {
-            return key.equals(System.SYSTEM_PROFILES_ENABLED);
+            switch (key) {
+                case System.SYSTEM_PROFILES_ENABLED:
+                // some apps still query Settings.System.DEV_FORCE_SHOW_NAVBAR;
+                // we intercept the call, and return CMSettings.Secure.DEV_FORCE_SHOW_NAVBAR's value
+                case Secure.DEV_FORCE_SHOW_NAVBAR:
+                    return true;
+                default:
+                    return false;
+            }
         }
 
         /**
@@ -2125,6 +2154,7 @@ public final class CMSettings {
             VALIDATORS.put(HEADS_UP_WHITELIST_VALUES, HEADS_UP_WHITELIST_VALUES_VALIDATOR);
             VALIDATORS.put(NOTIFICATION_LIGHT_COLOR_AUTO,
                     NOTIFICATION_LIGHT_COLOR_AUTO_VALIDATOR);
+            VALIDATORS.put(HEADSET_CONNECT_PLAYER, HEADSET_CONNECT_PLAYER_VALIDATOR);
             VALIDATORS.put(ZEN_ALLOW_LIGHTS, ZEN_ALLOW_LIGHTS_VALIDATOR);
             VALIDATORS.put(ZEN_PRIORITY_ALLOW_LIGHTS, ZEN_PRIORITY_ALLOW_LIGHTS_VALIDATOR);
             VALIDATORS.put(ZEN_PRIORITY_VIBRATION_MODE, ZEN_PRIORITY_VIBRATION_VALIDATOR);
@@ -2153,6 +2183,13 @@ public final class CMSettings {
                 CONTENT_URI,
                 CALL_METHOD_GET_SECURE,
                 CALL_METHOD_PUT_SECURE);
+
+        /** @hide */
+        protected static final ArraySet<String> MOVED_TO_GLOBAL;
+        static {
+            MOVED_TO_GLOBAL = new ArraySet<>(1);
+            MOVED_TO_GLOBAL.add(Global.DEV_FORCE_SHOW_NAVBAR);
+        }
 
         // region Methods
 
@@ -2217,6 +2254,11 @@ public final class CMSettings {
         /** @hide */
         public static String getStringForUser(ContentResolver resolver, String name,
                 int userId) {
+            if (MOVED_TO_GLOBAL.contains(name)) {
+                Log.w(TAG, "Setting " + name + " has moved from CMSettings.Secure"
+                        + " to CMSettings.Global, value is unchanged.");
+                return CMSettings.Global.getStringForUser(resolver, name, userId);
+            }
             return sNameValueCache.getStringForUser(resolver, name, userId);
         }
 
@@ -2234,6 +2276,11 @@ public final class CMSettings {
         /** @hide */
         public static boolean putStringForUser(ContentResolver resolver, String name, String value,
                int userId) {
+            if (MOVED_TO_GLOBAL.contains(name)) {
+                Log.w(TAG, "Setting " + name + " has moved from CMSettings.Secure"
+                        + " to CMSettings.Global, value is unchanged.");
+                return false;
+            }
             return sNameValueCache.putStringForUser(resolver, name, value, userId);
         }
 
@@ -2544,6 +2591,7 @@ public final class CMSettings {
 
         /**
          * Developer options - Navigation Bar show switch
+         * @deprecated
          * @hide
          */
         public static final String DEV_FORCE_SHOW_NAVBAR = "dev_force_show_navbar";
@@ -2771,8 +2819,14 @@ public final class CMSettings {
          */
         public static final String DEFAULT_LIVE_LOCK_SCREEN_COMPONENT =
                 "default_live_lock_screen_component";
-                
-       /**        
+
+        /**
+         * Whether keyguard will direct show security view (0 = false, 1 = true)
+         * @hide
+         */
+        public static final String LOCK_PASS_TO_SECURITY_VIEW = "lock_screen_pass_to_security_view";
+
+        /**
          * Whether touch hovering is enabled on supported hardware
          * @hide
          */
@@ -2871,6 +2925,7 @@ public final class CMSettings {
                 CMSettings.Secure.APP_PERFORMANCE_PROFILES_ENABLED,
                 CMSettings.Secure.QS_LOCATION_ADVANCED,
                 CMSettings.Secure.LOCKSCREEN_VISUALIZER_ENABLED,
+                CMSettings.Secure.LOCK_PASS_TO_SECURITY_VIEW
         };
 
         /**
@@ -2940,7 +2995,15 @@ public final class CMSettings {
          * @hide
          */
         public static boolean shouldInterceptSystemProvider(String key) {
-            return false;
+            switch (key) {
+                // some apps still query Settings.System.DEV_FORCE_SHOW_NAVBAR, and it was moved to
+                // Settings.Secure, then CMSettings.Secure. Forward queries from Settings.Secure
+                // to CMSettings.Secure here just in case an app stuck with the Settings.Secure call
+                case DEV_FORCE_SHOW_NAVBAR:
+                    return true;
+                default:
+                    return false;
+            }
         }
     }
 
@@ -3357,6 +3420,12 @@ public final class CMSettings {
          * <p>{@link cyanogenmod.providers.WeatherContract.WeatherColumns.TempUnit#FAHRENHEIT}</p>
          */
         public static final String WEATHER_TEMPERATURE_UNIT = "weather_temperature_unit";
+
+        /**
+         * Developer options - Navigation Bar show switch
+         * @hide
+         */
+        public static final String DEV_FORCE_SHOW_NAVBAR = "dev_force_show_navbar";
         // endregion
 
         /**

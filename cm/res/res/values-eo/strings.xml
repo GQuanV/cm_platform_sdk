@@ -41,6 +41,7 @@
   <!-- Name of wildcard profile. -->
   <!-- Performance profiles -->
   <!-- LiveDisplay strings -->
+  <string name="live_display_day">Tago</string>
   <!-- Third party keyguard permission label -->
   <!-- Third party keyguard permission description -->
   <!-- Device specific settings -->
@@ -72,5 +73,6 @@
   <!-- CMAudioService - observe session changes permission -->
   <!-- CMAudioService - observe session changes permission -->
   <!-- QuickSettings: Themes tile -->
+  <string name="qs_themes_label">Etosoj</string>
   <!-- Custom booot dexopt -->
 </resources>
